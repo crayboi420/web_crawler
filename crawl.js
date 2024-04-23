@@ -2,13 +2,12 @@ const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
 
 function normalizeURL(url) {
-    if (url.length > 6 && url.slice(0, 7) === 'http://') url = url.slice(7,);
-    if (url.length > 7 && url.slice(0, 8) === 'https://') url = url.slice(8,);
-    if (url.length > 1 && url[url.length - 1] === '/') url = url.slice(0, url.length - 1);
-    return url
-    // obj = new URL(url); 
-    
-    // return obj.hostname + obj.pathname
+    const urlObj = new URL(url)
+    let fullPath = `${urlObj.host}${urlObj.pathname}`
+    if (fullPath.length > 0 && fullPath.slice(-1) === '/') {
+        fullPath = fullPath.slice(0, -1)
+    }
+    return fullPath
 }
 
 function getURLsFromHTML(htmlBody, baseURL) {
@@ -16,17 +15,34 @@ function getURLsFromHTML(htmlBody, baseURL) {
     let urls = [];
     links = dom.window.document.getElementsByTagName('a');
     for (let i = 0; i < links.length;i++) {
-        urls.push(links[i].getAttribute("href"));
-        console.log(links[i].getAttribute("href"));
-        
+        let url = links[i].getAttribute("href");
+        try {
+            urlobj = new URL(url);
+        } catch (error) {
+            urlobj = new URL(baseURL);
+            urlobj.pathname = url;
+        }
+        urls.push(`${urlobj.protocol}//${urlobj.host}${urlobj.pathname}`);
     }
-
+    console.log(urls);
     return urls
 }
 
-getURLsFromHTML('<a href="https://blog.boot.dev"><span>Go to Boot.dev</span></a>')
+async function crawlPage(currentURL) {
+    try {
+        const response = await fetch(currentURL);
+        if (!response.ok) { 
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.text();
+        return data;
+    } catch (error) {
+        console.error('Error fetching data: ', error);
+    }
+}
 
 module.exports = {
     normalizeURL,
-    getURLsFromHTML
+    getURLsFromHTML,
+    crawlPage,
 }
